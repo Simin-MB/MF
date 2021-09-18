@@ -6,6 +6,7 @@ from collections import defaultdict
 from lib.PoissonFactorModel import PoissonFactorModel
 from lib.MultiGaussianModel import MultiGaussianModel
 from lib.TimeAwareMF import TimeAwareMF
+from lib.SocialCorrelation import SocialCorrelation
 from lib.metrics import precisionk, recallk, ndcgk, mapk
 
 
