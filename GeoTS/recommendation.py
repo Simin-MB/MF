@@ -10,6 +10,17 @@ from lib.SocialCorrelation import SocialCorrelation
 from lib.metrics import precisionk, recallk, ndcgk, mapk
 
 
+def read_friend_data():
+    social_data = open(social_file, 'r').readlines()
+    social_matrix = np.zeros((user_num, user_num))
+    for eachline in social_data:
+        uid1, uid2 = eachline.strip().split()
+        uid1, uid2 = int(uid1), int(uid2)
+        social_matrix[uid1, uid2] = 1.0
+        social_matrix[uid2, uid1] = 1.0
+    return social_matrix
+
+
 def read_poi_coos():
     poi_coos = {}
     poi_data = open(poi_file, 'r').readlines()
