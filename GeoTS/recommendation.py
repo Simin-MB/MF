@@ -83,9 +83,13 @@ def read_ground_truth():
 def main():
     sparse_training_matrices, sparse_training_matrix, sparse_training_matrix_WT, sparse_training_matrix_LT, training_tuples = read_training_data()
     ground_truth = read_ground_truth()
+    social_matrix = read_friend_data()
     poi_coos = read_poi_coos()
 
     start_time = time.time()
+    
+    SC.compute_beta(sparse_training_matrix, social_matrix)
+    SC.save_result("./tmp/")
 
     PFM.train(sparse_training_matrix, max_iters=10, learning_rate=1e-4)
     # Multi-Center Weekday
@@ -173,12 +177,14 @@ if __name__ == '__main__':
     tune_file = data_dir + "Gowalla_tune.txt"
     test_file = data_dir + "Gowalla_test.txt"
     poi_file = data_dir + "Gowalla_poi_coos.txt"
+    social_file = data_dir + "Gowalla_social_relations.txt"
 
     user_num, poi_num = open(size_file, 'r').readlines()[0].strip('\n').split()
     user_num, poi_num = int(user_num), int(poi_num)
 
     top_k = 100
-
+    
+    SC  = SocialCorrelation()
     PFM = PoissonFactorModel(K=30, alpha=20.0, beta=0.2)
     MGMWT = MultiGaussianModel(alpha=0.2, theta=0.02, dmax=15)
     MGMLT = MultiGaussianModel(alpha=0.2, theta=0.02, dmax=15)
