@@ -6,19 +6,8 @@ from collections import defaultdict
 from lib.PoissonFactorModel import PoissonFactorModel
 from lib.MultiGaussianModel import MultiGaussianModel
 from lib.TimeAwareMF import TimeAwareMF
-from lib.SocialCorrelation import SocialCorrelation
+from lib.FriendBasedCF import FriendBasedCF
 from lib.metrics import precisionk, recallk, ndcgk, mapk
-
-
-def read_friend_data():
-    social_data = open(social_file, 'r').readlines()
-    social_matrix = np.zeros((user_num, user_num))
-    for eachline in social_data:
-        uid1, uid2 = eachline.strip().split()
-        uid1, uid2 = int(uid1), int(uid2)
-        social_matrix[uid1, uid2] = 1.0
-        social_matrix[uid2, uid1] = 1.0
-    return social_matrix
 
 
 def read_poi_coos():
@@ -91,17 +80,27 @@ def read_ground_truth():
     print("The loading of Ground Truth Finished.")
     return ground_truth
 
+def read_friend_data():
+    social_data = open(social_file, 'r').readlines()
+    social_relations = defaultdict(list)
+    for eachline in social_data:
+        uid1, uid2 = eachline.strip().split()
+        uid1, uid2 = int(uid1), int(uid2)
+        social_relations[uid1].append(uid2)
+        social_relations[uid2].append(uid1)
+    return social_relations
+
 
 def main():
     sparse_training_matrices, sparse_training_matrix, sparse_training_matrix_WT, sparse_training_matrix_LT, training_tuples = read_training_data()
     ground_truth = read_ground_truth()
-    social_matrix = read_friend_data()
     poi_coos = read_poi_coos()
+    social_relations = read_friend_data()
+  # social_matrix = read_friend_data()
 
     start_time = time.time()
-    
-    SC.compute_beta(sparse_training_matrix, social_matrix)
-    SC.save_result("./tmp/")
+
+   # FCF.compute_friend_sim(social_relations, poi_coos, sparse_training_matrix)
 
     PFM.train(sparse_training_matrix, max_iters=10, learning_rate=1e-4)
     # Multi-Center Weekday
@@ -111,24 +110,29 @@ def main():
 
     TAMF.train(sparse_training_matrices, max_iters=30, load_sigma=False)
 
+    S.compute_friend_sim(social_relations, sparse_training_matrix)
+
+#    SC.compute_beta(sparse_training_matrix, social_matrix)
+#    SC.save_result("./tmp/")
+
     elapsed_time = time.time() - start_time
     print("Done. Elapsed time:", elapsed_time, "s")
 
-    execution_time = open("./result/execution_time" + ".txt", 'w')
+    execution_time = open("/content/drive/MyDrive/MF_social_model/result/execution_time" + ".txt", 'w')
     execution_time.write(str(elapsed_time))
 
-    rec_list = open("./result/reclist_top_" + str(top_k) + ".txt", 'w')
-    result_5 = open("./result/result_top_" + str(5) + ".txt", 'w')
-    result_10 = open("./result/result_top_" + str(10) + ".txt", 'w')
-    result_15 = open("./result/result_top_" + str(15) + ".txt", 'w')
-    result_20 = open("./result/result_top_" + str(20) + ".txt", 'w')
+    rec_list = open("/content/drive/MyDrive/MF_social_model/result/reclist_top_" + str(top_k) + ".txt", 'w')
+    result_5 = open("/content/drive/MyDrive/MF_social_model/result/result_top_" + str(5) + ".txt", 'w')
+    result_10 = open("/content/drive/MyDrive/MF_social_model/result/result_top_" + str(10) + ".txt", 'w')
+    result_15 = open("/content/drive/MyDrive/MF_social_model/result/result_top_" + str(15) + ".txt", 'w')
+    result_20 = open("/content/drive/MyDrive/MF_social_model/result/result_top_" + str(20) + ".txt", 'w')
 
     all_uids = list(range(user_num))
     all_lids = list(range(poi_num))
     np.random.shuffle(all_uids)
 
     # list for different ks
-    precision_5, recall_5, nDCG_5, MAP_5 = 0, 0, 0, 0
+    precision_5,  recall_5,  nDCG_5,  MAP_5 = 0, 0, 0, 0
     precision_10, recall_10, nDCG_10, MAP_10 = 0, 0, 0, 0
     precision_15, recall_15, nDCG_15, MAP_15 = 0, 0, 0, 0
     precision_20, recall_20, nDCG_20, MAP_20 = 0, 0, 0, 0
@@ -136,7 +140,7 @@ def main():
     for cnt, uid in enumerate(all_uids):
         if uid in ground_truth:
             # What is the meaning of the following structure?
-            overall_scores = [PFM.predict(uid, lid) * (MGMWT.predict(uid, lid) + MGMLT.predict(uid, lid)) * TAMF.predict(uid, lid)
+            overall_scores = [S.predict(uid, lid) * PFM.predict(uid, lid) * (MGMWT.predict(uid, lid) + MGMLT.predict(uid, lid)) * TAMF.predict(uid, lid)
                               if (uid, lid) not in training_tuples else -1
                               for lid in all_lids]
 
@@ -178,28 +182,36 @@ def main():
             result_15.write('\t'.join([str(cnt), str(uid), str(precision_15), str(recall_15), str(nDCG_15), str(MAP_15)]) + '\n')
             result_20.write('\t'.join([str(cnt), str(uid), str(precision_20), str(recall_20), str(nDCG_20), str(MAP_20)]) + '\n')
 
+    print(precision_10)
+    print(recall_10)
+    print(MAP_10)
+    print(precision_20)
+    print(recall_20)
+    print(MAP_20)
     print("<< STACP is Finished >>")
 
 if __name__ == '__main__':
-    data_dir = "../gowalla_u5628/"
+    # data_dir = "/content/drive/MyDrive/STACP_model/Gowalla_dataset"
 
-    size_file = data_dir + "Gowalla_data_size.txt"
-    check_in_file = data_dir + "Gowalla_checkins.txt"
-    train_file = data_dir + "Gowalla_train.txt"
-    tune_file = data_dir + "Gowalla_tune.txt"
-    test_file = data_dir + "Gowalla_test.txt"
-    poi_file = data_dir + "Gowalla_poi_coos.txt"
-    social_file = data_dir + "Gowalla_social_relations.txt"
+    size_file =  "/content/drive/MyDrive/STACP_model/Gowalla_dataset/Gowalla_data_size.txt"
+    check_in_file = "/content/drive/MyDrive/STACP_model/Gowalla_dataset/Gowalla_checkins.txt"
+    train_file =  "/content/drive/MyDrive/STACP_model/Gowalla_dataset/Gowalla_train.txt"
+    tune_file =  "/content/drive/MyDrive/STACP_model/Gowalla_dataset/Gowalla_tune.txt"
+    test_file =  "/content/drive/MyDrive/STACP_model/Gowalla_dataset/Gowalla_test.txt"
+    poi_file =  "/content/drive/MyDrive/STACP_model/Gowalla_dataset/Gowalla_poi_coos.txt"
+    social_file = "/content/drive/MyDrive/STACP_model/Gowalla_dataset/Gowalla_social_relations.txt"
 
     user_num, poi_num = open(size_file, 'r').readlines()[0].strip('\n').split()
     user_num, poi_num = int(user_num), int(poi_num)
 
     top_k = 100
-    
-    SC  = SocialCorrelation()
+
     PFM = PoissonFactorModel(K=30, alpha=20.0, beta=0.2)
     MGMWT = MultiGaussianModel(alpha=0.2, theta=0.02, dmax=15)
     MGMLT = MultiGaussianModel(alpha=0.2, theta=0.02, dmax=15)
     TAMF = TimeAwareMF(K=100, Lambda=1.0, beta=2.0, alpha=2.0, T=24)
+    S = FriendBasedCF(eta=0.05)
+#   FCF = FriendBasedCF()
+#   SC  = SocialCorrelation()
 
     main()
