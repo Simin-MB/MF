@@ -184,11 +184,13 @@ def main():
 
     print(precision_10)
     print(recall_10)
+    print(nDCG_10)
     print(MAP_10)
     print(precision_20)
     print(recall_20)
+    print(nDCG_20)
     print(MAP_20)
-    print("<< STACP is Finished >>")
+    print("<< GeoTS is Finished >>")
 
 if __name__ == '__main__':
     # data_dir = "/content/drive/MyDrive/STACP_model/Gowalla_dataset"
